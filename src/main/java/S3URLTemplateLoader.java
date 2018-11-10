@@ -11,7 +11,7 @@ public class S3URLTemplateLoader extends URLTemplateLoader {
     protected URL getURL(String name) {
 
         String[] uriParts = name.split("/");
-        String bucketName = uriParts[0] + "/";
+        String bucketName = uriParts[0];
         String key = String.join("/", Arrays.copyOfRange(uriParts, 1, uriParts.length));
 
         AmazonS3 amazonS3 = AmazonS3ClientBuilder.defaultClient();

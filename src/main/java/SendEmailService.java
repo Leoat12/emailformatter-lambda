@@ -1,7 +1,6 @@
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import freemarker.cache.ClassTemplateLoader;
 import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
@@ -15,11 +14,12 @@ import java.util.Map;
 public class SendEmailService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String TEMPLATE = "template1.html";
+    private final String TEMPLATE = "aws-leoat12-bucket/template1.html";
 
     private Configuration freeMarkerConfiguration(){
         final Configuration cfg = new Configuration(Configuration.VERSION_2_3_22);
-        cfg.setTemplateLoader(new ClassTemplateLoader(getClass(), "/templates"));
+        cfg.setLocalizedLookup(false);
+        cfg.setTemplateLoader(new S3URLTemplateLoader());
         cfg.setDefaultEncoding(StandardCharsets.UTF_8.name());
         cfg.setTemplateExceptionHandler(TemplateExceptionHandler.IGNORE_HANDLER);
         return cfg;
@@ -31,7 +31,7 @@ public class SendEmailService {
         return result.toString();
     }
 
-    public String buildEmailTemplate(Map<String, Object> data){
+    private String buildEmailTemplate(Map<String, Object> data){
 
         Configuration configuration = freeMarkerConfiguration();
 
@@ -44,13 +44,32 @@ public class SendEmailService {
 
     }
 
-    public void sendEmailFromSQS(SQSEvent.SQSMessage message){
+    public String sendEmailFromLocal(Map<String, Object> data){
+        String content = buildEmailTemplate(data);
+
+        String source = data.get("email.source").toString();
+        String destination = data.get("email.destination").toString();
+        String subject = data.get("email.subject").toString();
+
+        SESClient sesClient = SESClient.getInstance();
+        return sesClient.sendEmail(source, destination, subject, content);
+    }
+
+    public String sendEmailFromSQS(SQSEvent.SQSMessage message){
         try {
             JavaType mapType = objectMapper.getTypeFactory().constructMapLikeType(Map.class, String.class, Object.class);
             Map<String, Object> data = objectMapper.readValue(message.getBody(), mapType);
+
             String content = buildEmailTemplate(data);
+            String source = data.get("email.source").toString();
+            String destination = data.get("email.destination").toString();
+            String subject = data.get("email.subject").toString();
+
+            SESClient sesClient = SESClient.getInstance();
+            return sesClient.sendEmail(source, destination, subject, content);
+
         } catch (Exception e) {
-            return;
+            return null;
         }
     }
 }
