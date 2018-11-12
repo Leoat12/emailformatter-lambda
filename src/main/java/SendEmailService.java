@@ -1,3 +1,4 @@
+import com.amazonaws.services.lambda.runtime.LambdaLogger;
 import com.amazonaws.services.lambda.runtime.events.SQSEvent;
 import com.fasterxml.jackson.databind.JavaType;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +15,13 @@ import java.util.Map;
 public class SendEmailService {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String TEMPLATE = "aws-leoat12-bucket/template1.html";
+    private LambdaLogger lambdaLogger;
+
+    public SendEmailService(){}
+
+    public SendEmailService(LambdaLogger lambdaLogger){
+        this.lambdaLogger = lambdaLogger;
+    }
 
     private Configuration freeMarkerConfiguration(){
         final Configuration cfg = new Configuration(Configuration.VERSION_2_3_22);
@@ -34,14 +41,39 @@ public class SendEmailService {
     private String buildEmailTemplate(Map<String, Object> data){
 
         Configuration configuration = freeMarkerConfiguration();
+        String templatePath = getTemplatePath(data);
 
         try {
-            Template template = configuration.getTemplate(TEMPLATE);
+            Template template = configuration.getTemplate(templatePath);
             return processTemplateIntoString(template, data);
         } catch (Exception e){
             return null;
         }
 
+    }
+
+    private String getTemplatePath(Map<String, Object> data){
+
+        String bucketName = data.getOrDefault("s3.bucketName", "").toString();
+        String filePath = data.getOrDefault("s3.filePath", "").toString();
+
+        if(filePath.isEmpty())
+            return null;
+
+        if(bucketName.isEmpty())
+            bucketName = System.getenv("S3_BUCKET_NAME");
+
+        if(bucketName.isEmpty())
+            return null;
+
+        String templatePath = bucketName.replace("/", "");
+
+        if(filePath.startsWith("/"))
+            templatePath += filePath;
+        else
+            templatePath += "/".concat(filePath);
+
+        return templatePath;
     }
 
     public String sendEmailFromLocal(Map<String, Object> data){

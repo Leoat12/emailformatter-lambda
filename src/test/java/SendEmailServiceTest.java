@@ -23,6 +23,8 @@ public class SendEmailServiceTest {
         data.put("email.source", props.getProperty("email.source"));
         data.put("email.destination", props.getProperty("email.destination"));
         data.put("email.subject", props.getProperty("email.subject"));
+        data.put("s3.bucketName", props.getProperty("s3.bucketName"));
+        data.put("s3.filePath", props.getProperty("s3.filePath"));
 
         String messageId = sendEmailService.sendEmailFromLocal(data);
 
