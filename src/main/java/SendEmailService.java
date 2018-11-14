@@ -6,6 +6,8 @@ import freemarker.template.Configuration;
 import freemarker.template.Template;
 import freemarker.template.TemplateException;
 import freemarker.template.TemplateExceptionHandler;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.io.StringWriter;
@@ -14,14 +16,11 @@ import java.util.Map;
 
 public class SendEmailService {
 
+    private static final Logger logger = LogManager.getLogger(SendEmailService.class);
+
     private final ObjectMapper objectMapper = new ObjectMapper();
-    private LambdaLogger lambdaLogger;
 
     public SendEmailService(){}
-
-    public SendEmailService(LambdaLogger lambdaLogger){
-        this.lambdaLogger = lambdaLogger;
-    }
 
     private Configuration freeMarkerConfiguration(){
         final Configuration cfg = new Configuration(Configuration.VERSION_2_3_22);
@@ -39,14 +38,14 @@ public class SendEmailService {
     }
 
     private String buildEmailTemplate(Map<String, Object> data){
-
         Configuration configuration = freeMarkerConfiguration();
         String templatePath = getTemplatePath(data);
-
+        logger.info("Template path: {}", templatePath);
         try {
             Template template = configuration.getTemplate(templatePath);
             return processTemplateIntoString(template, data);
         } catch (Exception e){
+            logger.error(e);
             return null;
         }
 
@@ -92,15 +91,20 @@ public class SendEmailService {
             JavaType mapType = objectMapper.getTypeFactory().constructMapLikeType(Map.class, String.class, Object.class);
             Map<String, Object> data = objectMapper.readValue(message.getBody(), mapType);
 
+            logger.info("Preparing template...");
+            logger.info("Data: {}", data.toString());
+
             String content = buildEmailTemplate(data);
             String source = data.get("email.source").toString();
             String destination = data.get("email.destination").toString();
             String subject = data.get("email.subject").toString();
 
+            logger.info("Sending e-mail...");
             SESClient sesClient = SESClient.getInstance();
             return sesClient.sendEmail(source, destination, subject, content);
 
         } catch (Exception e) {
+            logger.error(e);
             return null;
         }
     }

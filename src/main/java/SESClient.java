@@ -2,10 +2,14 @@ import com.amazonaws.regions.Regions;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailService;
 import com.amazonaws.services.simpleemail.AmazonSimpleEmailServiceClientBuilder;
 import com.amazonaws.services.simpleemail.model.*;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.Objects;
 
 public class SESClient {
+
+    private static final Logger logger = LogManager.getLogger(SESClient.class);
 
     private static SESClient INSTANCE;
     private AmazonSimpleEmailService client;
@@ -17,12 +21,16 @@ public class SESClient {
     }
 
     public static SESClient getInstance(){
+        logger.info("Getting SES Instance...");
         if(Objects.isNull(INSTANCE)) {
+            logger.info("Instance not found...");
             INSTANCE = new SESClient();
             return INSTANCE;
         }
-        else
+        else {
+            logger.info("Instance found!");
             return INSTANCE;
+        }
     }
 
     public String sendEmail(String from, String to, String subject, String body){
@@ -40,6 +48,7 @@ public class SESClient {
             SendEmailResult result = client.sendEmail(request);
             return result.getMessageId();
         } catch (Exception e){
+            logger.error(e);
             return null;
         }
     }
