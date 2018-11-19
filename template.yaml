@@ -1,0 +1,87 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: "AWS::Serverless-2016-10-31"
+Description: CloudFormation template for Email Formatter Lambda function and related resources.
+Parameters:
+  FunctionName:
+    Type: String
+    Description: "Function Name"
+    Default: "EmailFormatterFunction"
+  FunctionCodeUri:
+    Type: String
+    Description: "Code Uri of the Function package"
+Resources:
+  EmailFormatterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: "email-formatter-send-queue"
+  EmailFormatterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          -
+            Effect: "Allow"
+            Principal:
+              Service: "lambda.amazonaws.com"
+            Action: "sts:AssumeRole"
+  EmailFormatterPolicy:
+      Type: AWS::IAM::Policy
+      Properties:
+        PolicyName: "EmailFormatterPolicy"
+        PolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            -
+              Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:*
+            - Effect: Allow
+              Action:
+                - logs:CreateLogStream
+                - logs:PutLogEvent
+              Resource: !Sub arn:aws:logs:${AWS::Region}:${AWS::AccountId}:log-group:/aws/lambda/${FunctionName}:*
+            -
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+                - ses:ListVerifiedEmailAddresses
+              Resource: "*"
+            -
+              Effect: Allow
+              Action:
+                - s3:Get*
+                - s3:List*
+              Resource: "*"
+            -
+              Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+              Resource: "arn:aws:sqs:*"
+        Roles:
+         - !Ref EmailFormatterRole
+  EmailFormatterFunction:
+    Type: AWS::Serverless::Function
+    DependsOn: EmailFormatterPolicy
+    Properties:
+      Handler: SQSEventHandler::handleRequest
+      Runtime: java8
+      CodeUri: !Ref FunctionCodeUri
+      FunctionName: !Ref FunctionName
+      Description: "Lambda Function for the Email Formatter"
+      Timeout: 15
+      MemorySize: 512
+      Role: !GetAtt [ "EmailFormatterRole", "Arn" ]
+      Environment:
+        Variables:
+          SQS_QUEUE: !Ref EmailFormatterQueue
+      Events:
+        QueueEvent:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt [ "EmailFormatterQueue", "Arn" ]
+            BatchSize: 10
