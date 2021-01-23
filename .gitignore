@@ -1,2 +1,4 @@
 .idea/
 src/main/resources/function.properties
+target/
+dependency-reduced-pom.xml
